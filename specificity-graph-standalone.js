@@ -1,10 +1,6 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.SpecificityGraph=e()}}(function(){var _defi_,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 'use strict';
 
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _d = _dereq_('d3');
@@ -15,9 +11,9 @@ var _toJs = _dereq_('to-js');
 
 var _toJs2 = _interopRequireDefault(_toJs);
 
-var _generateCssData = _dereq_('./generateCssData');
+var _generateCssData2 = _dereq_('./generateCssData');
 
-var _generateCssData2 = _interopRequireDefault(_generateCssData);
+var _generateCssData3 = _interopRequireDefault(_generateCssData2);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -28,13 +24,25 @@ if (typeof window === 'undefined') {
   throw new Error();
 }
 
+_d2.default.selection.prototype.moveToFront = function () {
+  return this.each(function () {
+    this.parentNode.appendChild(this);
+  });
+};
+_d2.default.selection.prototype.first = function () {
+  return _d2.default.select(this[0][0]);
+};
+_d2.default.selection.prototype.last = function () {
+  return _d2.default.select(this[0][this.size() - 1]);
+};
+
 var SpecificityGraph = function () {
   function SpecificityGraph(options) {
     var _this = this;
 
     _classCallCheck(this, SpecificityGraph);
 
-    this.specificity_data = {};
+    this.specificity_data = [];
     this.min_val = 0; //same for x/y
     this.max_val_y = 100;
     this.x = undefined;
@@ -50,22 +58,25 @@ var SpecificityGraph = function () {
         bottom: 40,
         left: 60
       },
+      dots: true,
+      scaleToFit: false,
+      fill: false, // close the path or use a line
       selector: '.js-graph',
       ticks: false,
       x_name: 'selectorIndex', // selectorIndex, line
       y_name: 'specificity', // specificity
       // linear, step-before, step-after, basis, basis-open, basis-closed,
       // bundle, cardinal, cardinal-open, cardinal-closed, monotone
-      linetype: 'basis'
+      linetype: 'monotone'
     }, options);
 
     this.created = false;
 
-    this.lineFunc = _d2.default.svg.line().interpolate(this.options.linetype).x(function (d, idx) {
+    this.draw = _d2.default.svg.line().x(function (d, idx) {
       return _this.x(d[_this.options.x_name]);
     }).y(function (d) {
       return _this.y(d[_this.options.y_name]);
-    });
+    }).interpolate(this.options.linetype);
 
     this.svg = _d2.default.select(this.options.selector);
   }
@@ -88,32 +99,64 @@ var SpecificityGraph = function () {
       this.yAxis = _d2.default.svg.axis().scale(this.y).tickSize(0).orient('left');
 
       // below elements don't change based on data
-      this.svg.append('svg:g').attr('class', 'axis axis--x' + axis_state).attr('transform', 'translate(0, ' + (height - padding.bottom) + ')').call(this.xAxis) // x axis
+      this.svg.append('g').attr({
+        class: 'axis axis--x' + axis_state,
+        transform: 'translate(0, ' + (height - padding.bottom) + ')'
+      }).call(this.xAxis) // x axis
       // Move the ticks out from the axis line
       .selectAll("text").attr("transform", 'translate(0, ' + (ticks ? 4 : 0) + ')');
 
-      this.svg.append('svg:g').attr('class', 'axis axis--y' + axis_state).attr('transform', 'translate(' + padding.left + ', 0)').call(this.yAxis) // y axis
+      this.svg.append('g').attr({
+        class: 'axis axis--y' + axis_state,
+        transform: 'translate(' + padding.left + ', 0)'
+      }).call(this.yAxis) // y axis
       // Move the ticks out from the axis line
       .selectAll("text").attr("transform", 'translate(' + (ticks ? -4 : 0) + ', 0)');
 
       // x domain label
-      this.svg.append('svg:text').attr('class', 'domain-label').attr('text-anchor', 'middle').attr('x', width / 2).attr('y', height).attr('transform', 'translate(0, ' + (padding.bottom + (ticks ? 34 : 16)) + ')').text('Location in stylesheet');
+      this.svg.append('text').attr({
+        class: 'domain-label',
+        'text-anchor': 'middle',
+        transform: 'translate(' + width / 2 + ', ' + (height - padding.bottom + (ticks ? 34 : 16)) + ')'
+      }).text('Location in stylesheet');
 
       // y domain label
-      this.svg.append('svg:text').attr('class', 'domain-label').attr('text-anchor', 'middle').attr('transform', 'translate(' + (padding.left - (ticks ? 34 : 16)) + ', ' + height / 2 + ') rotate(-90)').text('Specificity');
+      this.svg.append('text').attr({
+        class: 'domain-label',
+        'text-anchor': 'middle',
+        transform: 'translate(' + (padding.left - (ticks ? 34 : 16)) + ', ' + height / 2 + ') rotate(-90)'
+      }).text('Specificity');
 
       // handle on mouseover focus circle and info text
-      this.focus = this.svg.append('svg:g').attr('class', 'focus').style('display', 'none');
+      this.focus = this.svg.append('g').attr('class', 'focus').style('display', 'none');
 
-      this.focus.append('svg:circle').attr('r', 4.5);
+      this.focus.append('circle').attr('r', 4.5);
 
-      this.focus.append('svg:rect').attr('class', 'focus-text-background js-focus-text-background').attr('width', 300).attr('height', 20).attr('y', '-30').attr('ry', '14').attr('rx', '4');
+      this.focus.append('rect').attr({
+        class: 'focus-text-background js-focus-text-background',
+        width: 300,
+        height: 20,
+        y: '-30',
+        ry: '14',
+        rx: '4'
+      });
 
-      this.focus.append('svg:text').attr('class', 'focus-text js-focus-text').attr('text-anchor', 'middle').attr('dy', '0.35em').attr('y', '-20');
+      this.focus.append('text').attr({
+        class: 'focus-text js-focus-text',
+        'text-anchor': 'middle',
+        dy: '0.35em',
+        y: '-20'
+      });
 
       var self = this;
-      this.svg.append('svg:rect').attr('class', 'overlay').attr('width', width).attr('height', height).on('mouseout', function () {
+      this.svg.append('rect').attr({
+        class: 'overlay',
+        width: width,
+        height: height
+      }).on('mouseout', function () {
         return _this2.focus.style('display', 'none');
+      }).on('mouseover', function () {
+        return _this2.focus.moveToFront();
       }).on('mousemove', function () {
         var x0 = self.x.invert(_d2.default.mouse(this)[0]);
         var i = _d2.default.bisector(function (d) {
@@ -144,7 +187,18 @@ var SpecificityGraph = function () {
   }, {
     key: 'pathFromString',
     value: function pathFromString(str) {
-      this.pathFromData((0, _generateCssData2.default)(str));
+      this.pathFromData(this.generateCssData(str));
+    }
+  }, {
+    key: 'generateCssData',
+    value: function generateCssData(str) {
+      var data = (0, _generateCssData3.default)(str);
+
+      if (!this.options.fill) {
+        return data.slice(1, -1);
+      }
+
+      return data;
     }
   }, {
     key: 'pathFromData',
@@ -155,17 +209,44 @@ var SpecificityGraph = function () {
       var padding = _options2.padding;
       var y_name = _options2.y_name;
       var x_name = _options2.x_name;
+      var linetype = _options2.linetype;
 
-      this.specificity_data = data || this.specificity_data;
+      data = data || this.specificity_data;
+
+      if (this.options.scaleToFit) {
+        var result = [];
+        var first = data.shift();
+        var last = data.pop();
+        var x = data.length / (width - 2);
+
+        if (x) {
+          // loop through the data and filter get `x` items and then find the one
+          // with the most `y_name` and then push that to the result
+          // this is in here to prevent to many points from forming
+          for (var i = 0; i < data.length; i += x) {
+            result.push((data.slice(i, i + x) || []).sort(function (a, b) {
+              return a[y_name] < b[y_name];
+            })[0]);
+          }
+
+          data = result.filter(Boolean);
+        }
+
+        data.unshift(first);
+        data.push(last);
+      }
+
+      this.specificity_data = data;
+
       this.max_val_y = Math.max(100, _d2.default.max(this.specificity_data, function (d) {
         return d[y_name];
       }));
 
       this.x = _d2.default.scale.linear().range([padding.left, width - padding.right]).domain([this.min_val, _d2.default.max(this.specificity_data, function (d, idx) {
         return d[x_name];
-      })]);
+      })]).nice();
 
-      this.y = _d2.default.scale.linear().range([height - padding.top, padding.bottom]).domain([this.min_val, this.max_val_y]);
+      this.y = _d2.default.scale.linear().range([height - padding.top, padding.bottom]).domain([this.min_val, this.max_val_y]).nice();
 
       if (!this.created) {
         this.init();
@@ -179,33 +260,108 @@ var SpecificityGraph = function () {
       this.add(str);
     }
   }, {
+    key: 'group',
+    value: function group(id) {
+      var group = this.svg.append('g').attr({
+        class: 'group group--' + id
+      });
+
+      group.append('path').attr('class', 'line-path');
+
+      group.append('g').attr('class', 'dots');
+      return group;
+    }
+  }, {
     key: 'add',
     value: function add(str, id) {
-      this.pathFromString(str);
-      id = id || this.paths.length;
+      var _this3 = this;
 
-      this.svg.append('svg:path').attr('d', this.lineFunc(this.specificity_data)).attr('class', 'line-path line-path--' + id);
+      this.pathFromString(str);
+      id = id || this.groups.length;
+      var group = this.group(id);
+
+      group.select('.line-path').attr({
+        d: this.draw(this.specificity_data),
+        class: 'line-path'
+      });
+
+      if (this.options.dots) {
+        group.select('.dots').selectAll('dot').data(this.specificity_data).enter().append('circle').attr({
+          class: 'dots__dot',
+          'stroke-miterlimit': 10,
+          r: '1.5',
+          cx: function cx(d) {
+            return _this3.x(d[_this3.options.x_name]);
+          },
+          cy: function cy(d) {
+            return _this3.y(d[_this3.options.y_name]);
+          }
+        });
+      }
     }
   }, {
     key: 'remove',
     value: function remove(id) {
-      document.querySelector(this.options.selector + ' .line-path--' + id).remove();
+      document.querySelector(this.options.selector + ' .group--' + id).remove();
     }
   }, {
     key: 'replaceWith',
     value: function replaceWith(str, id) {
-      var duration = arguments.length <= 2 || arguments[2] === undefined ? 1000 : arguments[2];
+      var _this4 = this;
 
-      var paths = this.paths;
-      paths.slice(0, -1).forEach(function (line) {
-        return line.remove();
+      var duration = arguments.length <= 2 || arguments[2] === undefined ? 500 : arguments[2];
+
+      this.groups.slice(0, -1).forEach(function (group) {
+        return group.remove();
       });
+
+      var prev = this.specificity_data;
 
       this.pathFromString(str);
 
-      id = id || paths.length;
+      id = id || this.groups.length;
+      var group = this.groups.last();
 
-      this.svg.select('.line-path').transition().duration(duration).attr('d', this.lineFunc(this.specificity_data)).attr('class', 'line-path line-path--' + id).call(this.xAxis);
+      group.select('.line-path').transition().duration(duration / 6).attr('d', this.draw(this.fakeData(prev))).transition().attr('d', this.draw(this.fakeData(this.specificity_data))).transition().duration(duration / 2).ease('linear').attr({
+        d: this.draw(this.specificity_data),
+        class: 'line-path'
+      });
+
+      if (this.options.dots) {
+        var prev_circles = this.specificity_data.map(function (item, i) {
+          return prev[i] ? prev[i] : item;
+        });
+
+        var drawDot = {
+          class: 'dots__dot',
+          'stroke-miterlimit': 10,
+          r: '1.5',
+          cx: function cx(d) {
+            return _this4.x(d[_this4.options.x_name]);
+          },
+          cy: function cy(d) {
+            return _this4.y(d[_this4.options.y_name]);
+          }
+        };
+
+        var dots = group.select('.dots');
+        group.selectAll('.dots__dot').remove(); // remove all the dots
+
+        dots.selectAll('dot').data(prev_circles).enter().append('circle').attr(drawDot);
+
+        dots.selectAll('.dots__dot').data(this.specificity_data).transition().attr(drawDot);
+      }
+    }
+  }, {
+    key: 'fakeData',
+    value: function fakeData(data) {
+      var modifier = arguments.length <= 1 || arguments[1] === undefined ? 2 : arguments[1];
+
+      return data.map(function (data) {
+        data = _toJs2.default.clone(data);
+        data.specificity = data.specificity / modifier;
+        return data;
+      });
     }
   }, {
     key: 'nextFocus',
@@ -225,8 +381,8 @@ var SpecificityGraph = function () {
       this.focus.style('display', null);
       var d = this.specificity_data[this.index];
       this.focus.attr('transform', 'translate(' + this.x(d[this.options.x_name]) + ', ' + this.y(d[this.options.y_name]) + ')');
-      var t = this.focus.select('.js-focus-text');
 
+      var t = this.focus.select('.js-focus-text');
       if (d.selectors && d.specificity) {
         t.text(d.selectors + ': ' + d.specificity);
 
@@ -236,16 +392,53 @@ var SpecificityGraph = function () {
       }
     }
   }, {
-    key: 'paths',
+    key: 'groups',
     get: function get() {
-      return [].slice.call(document.querySelectorAll(this.options.selector + ' .line-path'));
+      return this.svg.selectAll('.group');
     }
   }]);
 
   return SpecificityGraph;
 }();
 
-exports.default = SpecificityGraph;
+function movingAvg(n) {
+  return function (points) {
+    var first = points.shift();
+    var last = points.pop();
+    points = points.map(function (each, index, array) {
+      var to = index + n - 1;
+      var subSeq = void 0,
+          sum = void 0;
+      if (to < points.length) {
+        subSeq = array.slice(index, to + 1);
+        sum = subSeq.reduce(function (a, b) {
+          return [a[0] + b[0], a[1] + b[1]];
+        });
+        return sum.map(function (each) {
+          return each / n;
+        });
+      }
+      return;
+    });
+    points = points.filter(function (each) {
+      return typeof each !== 'undefined';
+    });
+    points.unshift(first);
+    points.push(last);
+    // Note that one could re-interpolate the points
+    // to form a basis curve (I think...)
+    return points.join('L');
+  };
+}
+
+SpecificityGraph.movingAvg = movingAvg;
+
+module.exports = SpecificityGraph;
+// {
+//   SpecificityGraph,
+//   'default': SpecificityGraph,
+//   movingAvg
+// }
 
 },{"./generateCssData":2,"d3":122,"to-js":161}],2:[function(_dereq_,module,exports){
 'use strict';
