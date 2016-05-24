@@ -38,13 +38,9 @@ _d2.default.selection.prototype.last = function () {
 
 var SpecificityGraph = function () {
   function SpecificityGraph(options) {
-    var _this = this;
-
     _classCallCheck(this, SpecificityGraph);
 
     this.specificity_data = [];
-    this.min_val = 0; //same for x/y
-    this.max_val_y = 100;
     this.x = undefined;
     this.y = undefined;
     this.index = 0;
@@ -52,14 +48,14 @@ var SpecificityGraph = function () {
     this.options = _toJs2.default.extend({
       width: 1000,
       height: 400,
+      average: false,
       padding: {
         top: 40,
         right: 60,
         bottom: 40,
         left: 60
       },
-      dots: true,
-      scaleToFit: false,
+      dots: false,
       fill: false, // close the path or use a line
       selector: '.js-graph',
       ticks: false,
@@ -72,19 +68,13 @@ var SpecificityGraph = function () {
 
     this.created = false;
 
-    this.draw = _d2.default.svg.line().x(function (d, idx) {
-      return _this.x(d[_this.options.x_name]);
-    }).y(function (d) {
-      return _this.y(d[_this.options.y_name]);
-    }).interpolate(this.options.linetype);
-
     this.svg = _d2.default.select(this.options.selector);
   }
 
   _createClass(SpecificityGraph, [{
     key: 'init',
     value: function init() {
-      var _this2 = this;
+      var _this = this;
 
       var _options = this.options;
       var height = _options.height;
@@ -154,9 +144,9 @@ var SpecificityGraph = function () {
         width: width,
         height: height
       }).on('mouseout', function () {
-        return _this2.focus.style('display', 'none');
+        return _this.focus.style('display', 'none');
       }).on('mouseover', function () {
-        return _this2.focus.moveToFront();
+        return _this.focus.moveToFront();
       }).on('mousemove', function () {
         var x0 = self.x.invert(_d2.default.mouse(this)[0]);
         var i = _d2.default.bisector(function (d) {
@@ -211,42 +201,17 @@ var SpecificityGraph = function () {
       var x_name = _options2.x_name;
       var linetype = _options2.linetype;
 
-      data = data || this.specificity_data;
+      this.specificity_data = data || this.specificity_data;
 
-      if (this.options.scaleToFit) {
-        var result = [];
-        var first = data.shift();
-        var last = data.pop();
-        var x = data.length / (width - 2);
-
-        if (x) {
-          // loop through the data and filter get `x` items and then find the one
-          // with the most `y_name` and then push that to the result
-          // this is in here to prevent to many points from forming
-          for (var i = 0; i < data.length; i += x) {
-            result.push((data.slice(i, i + x) || []).sort(function (a, b) {
-              return a[y_name] < b[y_name];
-            })[0]);
-          }
-
-          data = result.filter(Boolean);
-        }
-
-        data.unshift(first);
-        data.push(last);
-      }
-
-      this.specificity_data = data;
-
-      this.max_val_y = Math.max(100, _d2.default.max(this.specificity_data, function (d) {
-        return d[y_name];
-      }));
-
-      this.x = _d2.default.scale.linear().range([padding.left, width - padding.right]).domain([this.min_val, _d2.default.max(this.specificity_data, function (d, idx) {
+      this.x = _d2.default.scale.linear().range([padding.left, width - padding.right]).domain([0, _d2.default.max(this.specificity_data, function (d, idx) {
         return d[x_name];
-      })]).nice();
+      })]);
+      // .nice()
 
-      this.y = _d2.default.scale.linear().range([height - padding.top, padding.bottom]).domain([this.min_val, this.max_val_y]).nice();
+      this.y = _d2.default.scale.linear().range([height - padding.top, padding.bottom]).domain([0, Math.max(100, _d2.default.max(this.specificity_data, function (d) {
+        return d[y_name];
+      }))]);
+      // .nice()
 
       if (!this.created) {
         this.init();
@@ -274,14 +239,14 @@ var SpecificityGraph = function () {
   }, {
     key: 'add',
     value: function add(str, id) {
-      var _this3 = this;
+      var _this2 = this;
 
       this.pathFromString(str);
       id = id || this.groups.length;
       var group = this.group(id);
 
       group.select('.line-path').attr({
-        d: this.draw(this.specificity_data),
+        d: this.line(this.specificity_data),
         class: 'line-path'
       });
 
@@ -291,10 +256,10 @@ var SpecificityGraph = function () {
           'stroke-miterlimit': 10,
           r: '1.5',
           cx: function cx(d) {
-            return _this3.x(d[_this3.options.x_name]);
+            return _this2.x(d[_this2.options.x_name]);
           },
           cy: function cy(d) {
-            return _this3.y(d[_this3.options.y_name]);
+            return _this2.y(d[_this2.options.y_name]);
           }
         });
       }
@@ -307,7 +272,7 @@ var SpecificityGraph = function () {
   }, {
     key: 'replaceWith',
     value: function replaceWith(str, id) {
-      var _this4 = this;
+      var _this3 = this;
 
       var duration = arguments.length <= 2 || arguments[2] === undefined ? 500 : arguments[2];
 
@@ -322,8 +287,8 @@ var SpecificityGraph = function () {
       id = id || this.groups.length;
       var group = this.groups.last();
 
-      group.select('.line-path').transition().duration(duration / 6).attr('d', this.draw(this.fakeData(prev))).transition().attr('d', this.draw(this.fakeData(this.specificity_data))).transition().duration(duration / 2).ease('linear').attr({
-        d: this.draw(this.specificity_data),
+      group.select('.line-path').transition().duration(duration / 6).attr('d', this.line(this.fakeData(prev))).transition().attr('d', this.line(this.fakeData(this.specificity_data))).transition().duration(duration / 2).ease('linear').attr({
+        d: this.line(this.specificity_data),
         class: 'line-path'
       });
 
@@ -337,10 +302,10 @@ var SpecificityGraph = function () {
           'stroke-miterlimit': 10,
           r: '1.5',
           cx: function cx(d) {
-            return _this4.x(d[_this4.options.x_name]);
+            return _this3.x(d[_this3.options.x_name]);
           },
           cy: function cy(d) {
-            return _this4.y(d[_this4.options.y_name]);
+            return _this3.y(d[_this3.options.y_name]);
           }
         };
 
@@ -392,6 +357,37 @@ var SpecificityGraph = function () {
       }
     }
   }, {
+    key: 'line',
+    get: function get() {
+      var _this4 = this;
+
+      var _options3 = this.options;
+      var avg = _options3.average;
+      var x_name = _options3.x_name;
+      var y_name = _options3.y_name;
+      var linetype = _options3.linetype;
+      var width = _options3.width;
+      var padding = _options3.padding;
+
+      var line = _d2.default.svg.line().x(function (d, idx) {
+        return _this4.x(d[x_name]);
+      }).y(function (d) {
+        return _this4.y(d[y_name]);
+      });
+
+      if (!avg) {
+        return line.interpolate(linetype);
+      }
+
+      var n = avg;
+
+      if (typeof n === 'boolean' || typeof number !== 'number') {
+        n = this.specificity_data.length / ((width - padding.left - padding.right) / 8);
+      }
+
+      return line.interpolate(average(n, linetype));
+    }
+  }, {
     key: 'groups',
     get: function get() {
       return this.svg.selectAll('.group');
@@ -401,44 +397,35 @@ var SpecificityGraph = function () {
   return SpecificityGraph;
 }();
 
-function movingAvg(n) {
+function average(n) {
+  var linetype = arguments.length <= 1 || arguments[1] === undefined ? 'basis' : arguments[1];
+
   return function (points) {
     var first = points.shift();
     var last = points.pop();
-    points = points.map(function (each, index, array) {
-      var to = index + n - 1;
-      var subSeq = void 0,
-          sum = void 0;
-      if (to < points.length) {
-        subSeq = array.slice(index, to + 1);
-        sum = subSeq.reduce(function (a, b) {
+    var initial_length = points.length;
+    var result = [];
+    for (var i = 0; i < points.length; i++) {
+      var _to = i + n - 1;
+      if (_to < points.length) {
+        result.push(points.slice(i, _to + 1).reduce(function (a, b) {
           return [a[0] + b[0], a[1] + b[1]];
-        });
-        return sum.map(function (each) {
+        }).map(function (each) {
           return each / n;
-        });
+        }));
       }
-      return;
-    });
-    points = points.filter(function (each) {
-      return typeof each !== 'undefined';
-    });
-    points.unshift(first);
-    points.push(last);
-    // Note that one could re-interpolate the points
-    // to form a basis curve (I think...)
-    return points.join('L');
+    }
+
+    result.unshift(first);
+    result.push(last);
+
+    return _d2.default.svg.line().interpolate(linetype)(result).slice(1);
   };
 }
 
-SpecificityGraph.movingAvg = movingAvg;
+SpecificityGraph.average = average;
 
 module.exports = SpecificityGraph;
-// {
-//   SpecificityGraph,
-//   'default': SpecificityGraph,
-//   movingAvg
-// }
 
 },{"./generateCssData":2,"d3":122,"to-js":161}],2:[function(_dereq_,module,exports){
 'use strict';
