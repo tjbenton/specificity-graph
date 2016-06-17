@@ -45,13 +45,24 @@ specificityGraph(directory, css, function(directory){
 First get the `specificityGraph` accessible in your code:
 
 #### Using Browserify (or similar)
-Just `require('specificity-graph')`.
+
+```js
+const SpecificityGraph = require('specificity-graph')
+or
+import SpecificityGraph from ''specificity-graph''
+```
 
 #### Standalone (no module loader)
 Add `<script src="specificity-graph-standalone.js"></script>`,
-this will expose `specificityGraph` as a global variable.
+this will expose the `SpecificityGraph` class as a global variable.
 
 #### Methods
+```
+import SpecificityGraph from 'specificity-graph'
+const graph = new SpecificityGraph()
+
+graph.add()
+```
 * `specificityGraph.create(css, options)`
 * `specificityGraph.createFromData(specificityData, options)`,
 * `specificityGraph.update(css)`
